@@ -12,12 +12,12 @@ enum ReturnOption {
     Win,
 }
 
-#[derive(Clone)] // Needed to track current card state on deck
+#[derive(Clone)]
 pub struct Card {
-    color: String, // "Red", "Blue", etc.
-    kind: String,  // "Number", "Skip", "Reverse", "PlusTwo", "Wild", "WildPlusFour"
-    number: i32,   // 0-9, or -1 for specials
-    plus: i8,      // 0, 2, or 4
+    color: String,
+    kind: String,
+    number: i32,
+    plus: i8,
     wild: bool,
 }
 
@@ -245,7 +245,6 @@ impl Game {
         }
 
         loop {
-            // Ensure index is valid
             if self.current_player < 0 {
                 self.current_player += self.players.len() as i32;
             }
