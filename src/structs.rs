@@ -75,6 +75,7 @@ impl Player {
                 result
             }
             None => {
+                deck.reshuffle();
                 if let Some(drawn_card) = deck.deck.pop() {
                     self.hand.push(drawn_card);
                 }
@@ -109,7 +110,16 @@ impl Deck {
             current_kind: String::new(),
         }
     }
+    fn reshuffle(&mut self) {
+        if self.deck.is_empty() && self.discard_pile.len() > 1 {
+            let top_card = self.discard_pile.pop().unwrap();
 
+            self.deck.append(&mut self.discard_pile);
+            self.shuffle_deck();
+
+            self.discard_pile.push(top_card);
+        }
+    }
     fn add_color_cards(&mut self, color: &str) {
         self.deck.push(Card {
             color: color.to_string(),
@@ -254,7 +264,6 @@ impl Game {
             let returned_option = player.simulate_turn(&mut self.deck);
 
             if returned_option == ReturnOption::Win {
-                println!("Player {} has won the game!", player_index);
                 return;
             }
 
@@ -269,6 +278,7 @@ impl Game {
                 ReturnOption::PlusTwo => {
                     let victim_index = self.get_next_player_index(1) as usize;
                     for _ in 0..2 {
+                        self.deck.reshuffle();
                         if let Some(c) = self.deck.deck.pop() {
                             self.players[victim_index].hand.push(c);
                         }
@@ -278,6 +288,7 @@ impl Game {
                 ReturnOption::WildPlusFour => {
                     let victim_index = self.get_next_player_index(1) as usize;
                     for _ in 0..4 {
+                        self.deck.reshuffle();
                         if let Some(c) = self.deck.deck.pop() {
                             self.players[victim_index].hand.push(c);
                         }
@@ -289,5 +300,11 @@ impl Game {
                 }
             }
         }
+    }
+    pub fn reset_game(&mut self) {
+        self.players.clear();
+        self.deck = Deck::new();
+        self.current_player = 0;
+        self.direction = 1;
     }
 }
