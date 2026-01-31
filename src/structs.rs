@@ -14,14 +14,14 @@ pub struct Player {
 
 pub struct Game {
     pub players: Vec<Player>,
-    pub deck: Vec<Card>,
+    pub deck: Deck,
     pub discard_pile: Vec<Card>,
     pub current_player: i32,
     pub direction: i8,
 }
 
-struct Deck {
-    deck: Vec<Card>,
+pub struct Deck {
+    pub deck: Vec<Card>,
 }
 
 impl Deck {
@@ -109,21 +109,38 @@ impl Deck {
         let mut rng = rng();
         self.deck.shuffle(&mut rng);
     }
+
+    fn deal_8_cards(&mut self) -> Vec<Card> {
+        let mut hand: Vec<Card> = vec![];
+        let mut dealt_cards = 0;
+        while dealt_cards != 8 {
+            if let Some(card) = self.deck.pop() {
+                hand.push(card);
+            }
+            dealt_cards += 1;
+        }
+        hand
+    }
 }
 
 impl Game {
     pub fn new() -> Self {
         Self {
             players: vec![],
-            deck: vec![],
+            deck: Deck::new(),
             discard_pile: vec![],
             current_player: 0,
             direction: 1,
         }
     }
     pub fn add_cards_to_deck(&mut self) {
-        let mut deck_instance = Deck::new();
-        deck_instance.add_cards_to_deck();
-        self.deck = deck_instance.deck;
+        self.deck.add_cards_to_deck();
+    }
+    pub fn deal_hands(&mut self, num_players: i32) {
+        for _ in 0..num_players {
+            let hand = self.deck.deal_8_cards();
+            let player = Player { hand };
+            self.players.push(player);
+        }
     }
 }
