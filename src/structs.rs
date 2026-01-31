@@ -12,6 +12,12 @@ enum ReturnOption {
     Win,
 }
 
+#[derive(Clone, Copy)]
+pub enum PlayerStrategy {
+    Basic,
+    Advanced,
+}
+
 #[derive(Clone)]
 pub struct Card {
     color: String,
@@ -23,10 +29,120 @@ pub struct Card {
 
 pub struct Player {
     hand: Vec<Card>,
+    strategy: PlayerStrategy,
 }
 
 impl Player {
     pub fn simulate_turn(&mut self, deck: &mut Deck) -> ReturnOption {
+        match self.strategy {
+            PlayerStrategy::Basic => self.basic_stratagy(deck),
+            PlayerStrategy::Advanced => self.advanced_stratagy(deck),
+        }
+    }
+    pub fn get_strategy(&self) -> &PlayerStrategy {
+        &self.strategy
+    }
+    pub fn advanced_stratagy(&mut self, deck: &mut Deck) -> ReturnOption {
+        let mut color_counts = std::collections::HashMap::new();
+        for card in &self.hand {
+            if !card.wild {
+                *color_counts.entry(card.color.clone()).or_insert(0) += 1;
+            }
+        }
+
+        let best_color = color_counts
+            .into_iter()
+            .max_by_key(|&(_, count)| count)
+            .map(|(col, _)| col)
+            .unwrap_or_else(|| "Red".to_string());
+
+        let mut valid_indices: Vec<usize> = Vec::new();
+        for (i, card) in self.hand.iter().enumerate() {
+            let color_match = card.color == deck.current_color;
+            let number_match = card.number != -1 && card.number == deck.current_number;
+            let symbol_match = card.kind != "Number" && card.kind == deck.current_kind;
+
+            if color_match || number_match || symbol_match || card.wild {
+                valid_indices.push(i);
+            }
+        }
+
+        let mut best_index: Option<usize> = None;
+        let mut best_score = -1;
+
+        for &index in &valid_indices {
+            let card = &self.hand[index];
+            let mut score = 0;
+
+            if self.hand.len() == 1 {
+                score = 100;
+            } else if card.wild {
+                score = 10;
+            } else {
+                let is_dominant_color = card.color == best_color;
+                let is_current_color = card.color == deck.current_color;
+
+                if !is_current_color && is_dominant_color {
+                    score = 50;
+                } else if is_current_color {
+                    if card.kind != "Number" {
+                        score = 40;
+                    } else {
+                        score = 30;
+                    }
+                }
+            }
+
+            if score > best_score {
+                best_score = score;
+                best_index = Some(index);
+            }
+        }
+
+        match best_index {
+            Some(index) => {
+                let played_card = self.hand.remove(index);
+
+                if played_card.wild {
+                    deck.current_color = best_color;
+                    deck.current_kind = played_card.kind.clone();
+                    deck.current_number = -1;
+                } else {
+                    deck.current_color = played_card.color.clone();
+                    deck.current_kind = played_card.kind.clone();
+                    deck.current_number = played_card.number;
+                }
+
+                let result = if played_card.plus == 2 {
+                    ReturnOption::PlusTwo
+                } else if played_card.plus == 4 {
+                    ReturnOption::WildPlusFour
+                } else if played_card.kind == "Skip" {
+                    ReturnOption::Skip
+                } else if played_card.kind == "Reverse" {
+                    ReturnOption::Reverse
+                } else {
+                    ReturnOption::None
+                };
+
+                deck.discard_pile.push(played_card);
+
+                if self.hand.is_empty() {
+                    return ReturnOption::Win;
+                }
+
+                result
+            }
+            None => {
+                deck.reshuffle();
+                if let Some(drawn_card) = deck.deck.pop() {
+                    self.hand.push(drawn_card);
+                }
+                ReturnOption::None
+            }
+        }
+    }
+    pub fn basic_stratagy(&mut self, deck: &mut Deck) -> ReturnOption {
         let mut card_index_to_play: Option<usize> = None;
 
         for (i, card) in self.hand.iter().enumerate() {
@@ -84,7 +200,6 @@ impl Player {
         }
     }
 }
-
 pub struct Game {
     pub players: Vec<Player>,
     pub deck: Deck,
@@ -222,10 +337,20 @@ impl Game {
     pub fn add_cards_to_deck(&mut self) {
         self.deck.add_cards_to_deck();
     }
-    pub fn deal_hands(&mut self, num_players: i32) {
-        for _ in 0..num_players {
+    pub fn deal_hands(&mut self, num_basic_players: i32, num_advanced_players: i32) {
+        for _ in 0..num_basic_players {
             let hand = self.deck.deal_8_cards();
-            self.players.push(Player { hand });
+            self.players.push(Player {
+                hand,
+                strategy: PlayerStrategy::Basic,
+            });
+        }
+        for _ in 0..num_advanced_players {
+            let hand = self.deck.deal_8_cards();
+            self.players.push(Player {
+                hand,
+                strategy: PlayerStrategy::Advanced,
+            });
         }
     }
 
@@ -242,7 +367,7 @@ impl Game {
         next
     }
 
-    pub fn start_game(&mut self) {
+    pub fn start_game(&mut self) -> PlayerStrategy {
         if let Some(starting_card) = self.deck.deck.pop() {
             self.deck.current_color = if starting_card.wild {
                 "Red".to_string()
@@ -264,7 +389,7 @@ impl Game {
             let returned_option = player.simulate_turn(&mut self.deck);
 
             if returned_option == ReturnOption::Win {
-                return;
+                return *player.get_strategy();
             }
 
             match returned_option {
