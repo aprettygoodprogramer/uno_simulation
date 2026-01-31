@@ -24,15 +24,9 @@ struct Deck {
     deck: Vec<Card>,
 }
 
-impl Game {
+impl Deck {
     pub fn new() -> Self {
-        Self {
-            players: vec![],
-            deck: vec![],
-            discard_pile: vec![],
-            current_player: 0,
-            direction: 1,
-        }
+        Self { deck: vec![] }
     }
     fn add_color_cards(&mut self, color: &str) {
         let mut amount_cards = 0;
@@ -114,5 +108,22 @@ impl Game {
     fn shuffle_deck(&mut self) {
         let mut rng = rng();
         self.deck.shuffle(&mut rng);
+    }
+}
+
+impl Game {
+    pub fn new() -> Self {
+        Self {
+            players: vec![],
+            deck: vec![],
+            discard_pile: vec![],
+            current_player: 0,
+            direction: 1,
+        }
+    }
+    pub fn add_cards_to_deck(&mut self) {
+        let mut deck_instance = Deck::new();
+        deck_instance.add_cards_to_deck();
+        self.deck = deck_instance.deck;
     }
 }
